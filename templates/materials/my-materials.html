@@ -1,0 +1,24 @@
+<!doctype html>
+<html><body>
+<h1>Mis materiales</h1>
+{% if materials %}
+<table>
+  <thead>
+    <tr><th>Curso</th><th>Sección</th><th>Título</th><th>Archivo</th><th>Fecha</th></tr>
+  </thead>
+  <tbody>
+  {% for m in materials %}
+    <tr>
+      <td>{{ m.course.name }}</td>
+      <td>—</td>  {# cuando veamos tu modelo real de Section, llenamos esto #}
+      <td>{{ m.title }}</td>
+      <td><a href="{{ m.file.url }}" download>Descargar</a></td>
+      <td>{{ m.uploaded_at|date:"Y-m-d H:i" }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No hay materiales.</p>
+{% endif %}
+</body></html>
