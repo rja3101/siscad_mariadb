@@ -1,0 +1,82 @@
+{% extends "base.html" %}
+
+{% block title %}Importar Estudiantes{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2><i class="bi bi-file-earmark-arrow-up"></i> {{ title }}</h2>
+    
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            {{ form.file.label_tag }}
+                            {{ form.file }}
+                            {% if form.file.errors %}
+                            <div class="text-danger">
+                                {{ form.file.errors }}
+                            </div>
+                            {% endif %}
+                            <small class="form-text text-muted">
+                                {{ form.file.help_text }}
+                            </small>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-upload"></i> Importar
+                        </button>
+                        <a href="{% url 'admin:index' %}" class="btn btn-secondary">Cancelar</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0">Instrucciones</h6>
+                </div>
+                <div class="card-body">
+                    {{ instructions|safe }}
+                </div>
+            </div>
+            
+            <div class="card mt-3">
+                <div class="card-header bg-warning">
+                    <h6 class="mb-0">Ejemplo de Archivo</h6>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm table-bordered">
+                        <thead>
+                            <tr>
+                                <th>username</th>
+                                <th>first_name</th>
+                                <th>last_name</th>
+                                <th>email</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>jperez</td>
+                                <td>Juan</td>
+                                <td>Pérez</td>
+                                <td>jperez@univ.edu</td>
+                            </tr>
+                            <tr>
+                                <td>mgomez</td>
+                                <td>María</td>
+                                <td>Gómez</td>
+                                <td>mgomez@univ.edu</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

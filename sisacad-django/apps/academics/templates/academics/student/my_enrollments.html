@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}Mis Matrículas - {{ term.code }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Mis Matrículas - {{ term.name }}</h2>
+    
+    <div class="card mb-3">
+        <div class="card-body">
+            <h5 class="card-title">Resumen</h5>
+            <p class="mb-1"><strong>Cursos Matriculados:</strong> {{ enrollments.count }}</p>
+            <p class="mb-0"><strong>Total de Créditos:</strong> {{ total_credits }}</p>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header bg-success text-white">
+            <h5 class="mb-0">Cursos Matriculados</h5>
+        </div>
+        <div class="card-body">
+            {% if enrollments %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Código</th>
+                            <th>Nombre del Curso</th>
+                            <th>Sección</th>
+                            <th>Créditos</th>
+                            <th>Fecha de Matrícula</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for enrollment in enrollments %}
+                        <tr>
+                            <td><strong>{{ enrollment.course_group.course.code }}</strong></td>
+                            <td>{{ enrollment.course_group.course.name }}</td>
+                            <td>{{ enrollment.course_group.section_code }}</td>
+                            <td>{{ enrollment.course_group.course.credits }}</td>
+                            <td>{{ enrollment.enrolled_at|date:"d/m/Y H:i" }}</td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <!-- Botón Drop -->
+                                    <form method="post" action="{% url 'drop_enrollment' enrollment.id %}" 
+                                          style="display: inline;"
+                                          onsubmit="return confirm('¿Estás seguro de dar de baja este curso?');">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-danger" title="Dar de baja">
+                                            <i class="bi bi-x-circle"></i> Baja
+                                        </button>
+                                    </form>
+                                    
+                                    <!-- Botón Swap (modal) -->
+                                    <button type="button" class="btn btn-sm btn-warning" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#swapModal{{ enrollment.id }}"
+                                            title="Cambiar de sección">
+                                        <i class="bi bi-arrow-left-right"></i> Cambiar
+                                    </button>
+                                </div>
+                                
+                                <!-- Modal para swap -->
+                                <div class="modal fade" id="swapModal{{ enrollment.id }}" tabindex="-1">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title">Cambiar de Sección</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <form method="post" action="{% url 'swap_section' enrollment.id %}">
+                                                {% csrf_token %}
+                                                <div class="modal-body">
+                                                    <p><strong>Curso:</strong> {{ enrollment.course_group.course.code }} - {{ enrollment.course_group.course.name }}</p>
+                                                    <p><strong>Sección Actual:</strong> {{ enrollment.course_group.section_code }}</p>
+                                                    
+                                                    <div class="mb-3">
+                                                        <label class="form-label">Nueva Sección:</label>
+                                                        <input type="number" name="new_group_id" class="form-control" 
+                                                               placeholder="ID del nuevo grupo" required>
+                                                        <small class="text-muted">Ingresa el ID del nuevo grupo (consulta con Secretaría)</small>
+                                                    </div>
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                                    <button type="submit" class="btn btn-primary">Confirmar Cambio</button>
+                                                </div>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center text-muted py-4">
+                <i class="bi bi-journal-x" style="font-size: 3rem;"></i>
+                <p class="mt-3">No tienes matrículas activas</p>
+                <a href="{% url 'offerings' %}" class="btn btn-primary">Ir a Oferta de Cursos</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="mt-3">
+        <a href="{% url 'offerings' %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Volver
+        </a>
+    </div>
+</div>
+{% endblock %}

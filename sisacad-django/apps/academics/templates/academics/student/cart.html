@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}Mi Carrito - {{ term.code }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Carrito de Matrícula - {{ term.name }}</h2>
+    
+    {% if cart.is_confirmed %}
+    <div class="alert alert-info">
+        <i class="bi bi-check-circle"></i> Este carrito ya fue confirmado el {{ cart.confirmed_at }}
+    </div>
+    {% endif %}
+    
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Cursos en el Carrito</h5>
+        </div>
+        <div class="card-body">
+            {% if items %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Curso</th>
+                            <th>Sección</th>
+                            <th>Créditos</th>
+                            <th>Estado de Reserva</th>
+                            <th>Tiempo Restante</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in items %}
+                        <tr {% if item.is_expired %}class="table-warning"{% endif %}>
+                            <td>
+                                <strong>{{ item.course_group.course.code }}</strong><br>
+                                <small>{{ item.course_group.course.name }}</small>
+                            </td>
+                            <td>{{ item.course_group.section_code }}</td>
+                            <td>{{ item.course_group.course.credits }}</td>
+                            <td>
+                                {% if item.is_expired %}
+                                <span class="badge bg-danger">⏱ Expirada</span>
+                                {% else %}
+                                <span class="badge bg-success">✓ Reservada</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if not item.is_expired and item.time_left %}
+                                <span class="text-success">{{ item.time_left }} min</span>
+                                {% else %}
+                                <span class="text-danger">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if not cart.is_confirmed %}
+                                <form method="post" action="{% url 'remove_from_cart' item.course_group.id %}" style="display: inline;">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-danger">
+                                        <i class="bi bi-trash"></i> Eliminar
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr class="table-info">
+                            <td colspan="2"><strong>Total de Créditos:</strong></td>
+                            <td><strong>{{ total_credits }}</strong></td>
+                            <td colspan="3"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            
+            {% if not cart.is_confirmed %}
+            <div class="mt-4">
+                <form method="post" action="{% url 'confirm_cart' %}" onsubmit="return confirm('¿Confirmar matrícula? Esta acción no se puede deshacer.');">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-success btn-lg">
+                        <i class="bi bi-check-circle"></i> Confirmar Matrícula
+                    </button>
+                </form>
+            </div>
+            {% endif %}
+            {% else %}
+            <div class="text-center text-muted py-4">
+                <i class="bi bi-cart-x" style="font-size: 3rem;"></i>
+                <p class="mt-3">Tu carrito está vacío</p>
+                <a href="{% url 'offerings' %}" class="btn btn-primary">Ver Oferta de Cursos</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="alert alert-info">
+        <strong>⚠ Importante:</strong> Las reservas de cupo tienen una duración limitada. 
+        Confirma tu matrícula antes de que expiren.
+    </div>
+    
+    <a href="{% url 'offerings' %}" class="btn btn-secondary">
+        <i class="bi bi-arrow-left"></i> Volver a Oferta
+    </a>
+</div>
+
+<script>
+// Auto-refresh cada minuto para actualizar tiempos
+setTimeout(function() {
+    location.reload();
+}, 60000);
+</script>
+{% endblock %}
