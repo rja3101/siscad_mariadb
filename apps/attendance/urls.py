@@ -1,6 +1,6 @@
 from django.urls import path
-from .views import attendance_index
+from .views import my_schedule
 
 urlpatterns = [
-    path("", attendance_index, name="attendance_index"),
+    path("me/schedule/", my_schedule, name="my_schedule"),
 ]

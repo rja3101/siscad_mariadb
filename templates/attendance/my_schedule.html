@@ -1,0 +1,23 @@
+<!doctype html>
+<html><body>
+<h1>Mi horario</h1>
+{% if schedules %}
+<table>
+  <thead><tr><th>Día</th><th>Curso</th><th>Sección</th><th>Aula</th><th>Inicio</th><th>Fin</th></tr></thead>
+  <tbody>
+  {% for r in schedules %}
+    <tr>
+      <td>{{ r.day }}</td>
+      <td>{{ r.course }}</td>
+      <td>{{ r.section }}</td>
+      <td>{{ r.room }}</td>
+      <td>{{ r.start }}</td>
+      <td>{{ r.end }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p>No tienes horarios asignados.</p>
+{% endif %}
+</body></html>

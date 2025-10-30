@@ -10,7 +10,7 @@
   {% for m in materials %}
     <tr>
       <td>{{ m.course.name }}</td>
-      <td>—</td>  {# cuando veamos tu modelo real de Section, llenamos esto #}
+      <td>—</td>
       <td>{{ m.title }}</td>
       <td><a href="{{ m.file.url }}" download>Descargar</a></td>
       <td>{{ m.uploaded_at|date:"Y-m-d H:i" }}</td>

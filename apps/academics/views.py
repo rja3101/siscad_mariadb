@@ -1,115 +1,98 @@
-from django.contrib.auth.decorators import login_required
-from django.db.models import Avg, Max, Min
-from django.http import JsonResponse, HttpResponse
-from django.shortcuts import render, get_object_or_404
-from .models import CourseGroup, Grade
+from django.apps import apps
+from django.db.models import Avg
+from django.http import HttpResponse
+from django.shortcuts import render
+from django.template import TemplateDoesNotExist
+from apps.users.decorators import role_required 
+def _field_names(model):
+    return {f.name for f in model._meta.get_fields() if hasattr(f, "name")}
 
-@login_required
-def academics_index(request):
-    """
-    Página de inicio del módulo Académico:
-    - Lista todos los grupos/secciones con conteo de matriculados.
-    - Accesos a estadísticas (HTML) y exportar notas (CSV).
-    """
-    groups = (
-        CourseGroup.objects
-        .select_related("course", "course__teacher")
-        .order_by("course__code", "section")
-    )
-    return render(request, "academics/index.html", {"groups": groups})
+def _pick_grade_numeric_field(grade_fields: set[str]) -> str | None:
+    for name in ["score", "grade", "value", "final", "points"]:
+        if name in grade_fields:
+            return name
+    return None
 
-# --- Estadísticas en JSON (prom, máx, mín) ---
-@login_required
-def coursegroup_stats(request, group_id: int):
-    cg = get_object_or_404(CourseGroup.objects.select_related("course"), pk=group_id)
-    enrolled = cg.enrolled_count
-    stats = (
-        Grade.objects.filter(assessment__course_group=cg)
-        .aggregate(avg=Avg("score"), mx=Max("score"), mn=Min("score"))
-    )
-    return JsonResponse({
-        "course": cg.course.code,
-        "group": cg.section,
-        "enrolled": enrolled,
-        "stats": {
-            "avg": float(stats["avg"] or 0),
-            "max": float(stats["mx"] or 0),
-            "min": float(stats["mn"] or 0),
-        },
-    })
-
-# --- Página HTML con gráfico de barras ---
-@login_required
-def group_stats_view(request, group_id: int):
-    cg = get_object_or_404(CourseGroup.objects.select_related("course"), pk=group_id)
-    enrolled = cg.enrolled_count
-    stats = Grade.objects.filter(assessment__course_group=cg).aggregate(
-        avg=Avg("score"), mx=Max("score"), mn=Min("score")
-    )
-    rows = (
-        Grade.objects
-        .filter(assessment__course_group=cg)
-        .select_related("student", "assessment")
-        .order_by("student__username")
-    )
-    labels = [f"{g.student.username}-{g.assessment.title}" for g in rows]
-    scores = [float(g.score) for g in rows]
-    ctx = {
-        "course_group": cg,
-        "enrolled": enrolled,
-        "stats": stats,
-        "labels": labels,
-        "scores": scores,
-    }
-    return render(request, "academics/group_stats.html", ctx)
-
-# --- Desempeño del alumno logueado (JSON) ---
-@login_required
+@role_required(["Alumno"])
 def my_performance(request):
-    qs = (
-        Grade.objects
-        .filter(student=request.user)
-        .select_related(
-            "assessment",
-            "assessment__course_group",
-            "assessment__course_group__course"
+    Enrollment = apps.get_model("academics", "Enrollment")
+    Grade      = apps.get_model("academics", "Grade")
+
+    grade_fields = _field_names(Grade)
+    enrollment_fields = _field_names(Enrollment)
+    num_field = _pick_grade_numeric_field(grade_fields)
+    student_field = "student" if "student" in grade_fields else ("user" if "user" in grade_fields else None)
+
+    enroll_qs = Enrollment.objects.filter(student=request.user)
+    sel = []
+    if "section" in enrollment_fields: sel.append("section__course")
+    if "course_group" in enrollment_fields: sel.append("course_group__course")
+    if "course" in enrollment_fields: sel.append("course")
+    if sel: enroll_qs = enroll_qs.select_related(*sel)
+
+    groups = []
+    for e in enroll_qs:
+        section = getattr(e, "section", None)
+        course_group = getattr(e, "course_group", None)
+        course = getattr(section, "course", None) or getattr(course_group, "course", None) or getattr(e, "course", None)
+        groups.append({
+            "course": course,
+            "course_code": getattr(course, "code", "—"),
+            "course_name": getattr(course, "name", "—"),
+            "section": section,
+            "section_code": getattr(section, "code", None) or getattr(course_group, "code", None) or getattr(course_group, "group_code", None) or "—",
+            "course_group": course_group,
+            "course_id": getattr(course, "id", None),
+            "section_id": getattr(section, "id", None),
+            "course_group_id": getattr(course_group, "id", None),
+        })
+
+    def avg_for_group(g):
+        if not num_field or not student_field: return None
+        base = Grade.objects.filter(**{student_field: request.user})
+        if "section" in grade_fields and g["section_id"]:
+            qs = base.filter(section_id=g["section_id"])
+        elif "course_group" in grade_fields and g["course_group_id"]:
+            qs = base.filter(course_group_id=g["course_group_id"])
+        elif "course" in grade_fields and g["course_id"]:
+            qs = base.filter(course_id=g["course_id"])
+        else:
+            qs = base.none()
+        return qs.aggregate(avg=Avg(num_field))["avg"]
+
+    rows, avgs = [], []
+    for g in groups:
+        avg = avg_for_group(g)
+        if avg is None:
+            status = "Sin notas registradas"
+        else:
+            status = "Al día" if avg >= 11 else "En riesgo"
+            avgs.append(avg)
+        rows.append({
+            "course_code": g["course_code"],
+            "course_name": g["course_name"],
+            "section_code": g["section_code"],
+            "avg": avg,
+            "status": status,
+        })
+
+    global_avg = (sum(avgs) / len(avgs)) if avgs else None
+    global_status = "Sin notas registradas" if global_avg is None else ("Al día" if global_avg >= 11 else "En riesgo")
+
+    try:
+        return render(request, "academics/my_performance.html", {
+            "rows": rows, "global_avg": global_avg, "global_status": global_status
+        })
+    except TemplateDoesNotExist:
+        if not rows:
+            return HttpResponse("<!doctype html><body><h1>Mi desempeño</h1><p>Sin notas registradas.</p></body>")
+        body = "".join(
+            f"<tr><td>{r['course_code']} - {r['course_name']}</td>"
+            f"<td>{r['section_code']}</td>"
+            f"<td>{'—' if r['avg'] is None else f'{r['avg']:.2f}'}</td>"
+            f"<td>{r['status']}</td></tr>"
+            for r in rows
         )
-    )
-    resumen = {}
-    for g in qs:
-        key = f"{g.assessment.course_group.course.code}-{g.assessment.course_group.section}"
-        resumen.setdefault(key, {"items": [], "avg": 0})
-        resumen[key]["items"].append({"assessment": g.assessment.title, "score": float(g.score)})
-    for k, v in resumen.items():
-        if v["items"]:
-            v["avg"] = sum(i["score"] for i in v["items"]) / len(v["items"])
-    return JsonResponse(resumen)
-
-# --- Exportar notas del grupo a CSV ---
-@login_required
-def export_group_grades_csv(request, group_id: int):
-    """
-    Exporta a CSV las notas del grupo (una fila por (alumno, evaluación)).
-    Columnas: username, curso, seccion, evaluacion, score
-    """
-    cg = get_object_or_404(CourseGroup.objects.select_related("course"), pk=group_id)
-    rows = (
-        Grade.objects
-        .filter(assessment__course_group=cg)
-        .select_related("student", "assessment")
-        .order_by("student__username", "assessment__title")
-    )
-
-    # Construir CSV en memoria
-    lines = ["username,curso,seccion,evaluacion,score"]
-    for g in rows:
-        uname = g.student.username.replace(",", " ")
-        curso = cg.course.code
-        secc = cg.section
-        evalt = g.assessment.title.replace(",", " ")
-        lines.append(f"{uname},{curso},{secc},{evalt},{float(g.score)}")
-
-    content = "\n".join(lines)
-    response = HttpResponse(content, content_type="text/csv; charset=utf-8")
-    response["Content-Disposition"] = f'attachment; filename="notas_{cg.course.code}_{cg.section}.csv"'
-    return response
+        gline = ("—" if global_avg is None else f"{global_avg:.2f}") + f" — {global_status}"
+        html = f"<!doctype html><body><h1>Mi desempeño</h1><table><thead><tr><th>Curso</th><th>Sección</th><th>Promedio</th><th>Semáforo</th></tr></thead><tbody>{body}</tbody></table><div><strong>Promedio global:</strong> {gline}</div></body>"
+        return HttpResponse(html)
