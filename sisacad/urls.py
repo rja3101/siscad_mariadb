@@ -18,7 +18,7 @@ urlpatterns = [
     path("attendance/", include("apps.attendance.urls")),
     #diego
     path("academics/", include("apps.materials.urls")),
-]
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 #para los MATERIALES subidos 
 if settings.DEBUG:

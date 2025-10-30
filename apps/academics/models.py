@@ -1,5 +1,7 @@
+# apps/academics/models.py
 from django.db import models
 from django.conf import settings
+
 
 # --- Cursos y secciones/grupos ---
 class Course(models.Model):
@@ -13,12 +15,27 @@ class Course(models.Model):
         limit_choices_to={"role__name": "Docente"},
     )
 
+    # --- NUEVO: semestre ---
+    SEMESTER_CHOICES = [
+        ("2025-I", "2025-I"),
+        ("2025-II", "2025-II"),
+        ("2026-I", "2026-I"),
+        ("2026-II", "2026-II"),
+    ]
+    semester = models.CharField(
+        max_length=20,
+        choices=SEMESTER_CHOICES,
+        default="2025-II",
+        db_index=True,
+    )
+
     class Meta:
         verbose_name = "Curso"
         verbose_name_plural = "Cursos"
 
     def __str__(self):
         return f"{self.code} - {self.name}"
+
 
 class CourseGroup(models.Model):
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name="groups")
@@ -43,6 +60,7 @@ class CourseGroup(models.Model):
     def has_capacity(self) -> bool:
         return self.enrolled_count < self.capacity
 
+
 # --- Matrículas ---
 class Enrollment(models.Model):
     student = models.ForeignKey(
@@ -51,7 +69,9 @@ class Enrollment(models.Model):
         limit_choices_to={"role__name": "Alumno"},
         related_name="enrollments",
     )
-    course_group = models.ForeignKey(CourseGroup, on_delete=models.CASCADE, related_name="enrollments")
+    course_group = models.ForeignKey(
+        CourseGroup, on_delete=models.CASCADE, related_name="enrollments"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -68,6 +88,7 @@ class Enrollment(models.Model):
     def __str__(self):
         return f"{self.student.username} -> {self.course_group}"
 
+
 # --- Evaluaciones y Notas ---
 class Assessment(models.Model):
     TYPE_CHOICES = [
@@ -76,7 +97,9 @@ class Assessment(models.Model):
         ("PR", "Proyecto"),
         ("OT", "Otro"),
     ]
-    course_group = models.ForeignKey(CourseGroup, on_delete=models.CASCADE, related_name="assessments")
+    course_group = models.ForeignKey(
+        CourseGroup, on_delete=models.CASCADE, related_name="assessments"
+    )
     title = models.CharField(max_length=120)
     kind = models.CharField(max_length=2, choices=TYPE_CHOICES, default="EX")
     weight = models.DecimalField(max_digits=5, decimal_places=2, default=0)  # porcentaje
@@ -91,6 +114,7 @@ class Assessment(models.Model):
     def __str__(self):
         return f"{self.course_group} - {self.title}"
 
+
 class Grade(models.Model):
     student = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -98,9 +122,13 @@ class Grade(models.Model):
         limit_choices_to={"role__name": "Alumno"},
         related_name="grades",
     )
-    assessment = models.ForeignKey(Assessment, on_delete=models.CASCADE, related_name="grades")
+    assessment = models.ForeignKey(
+        Assessment, on_delete=models.CASCADE, related_name="grades"
+    )
     score = models.DecimalField(max_digits=6, decimal_places=2)
-    uploaded_exam = models.FileField(upload_to="exam_uploads/", blank=True, null=True)  # PDF/Evidencia
+    uploaded_exam = models.FileField(
+        upload_to="exam_uploads/", blank=True, null=True
+    )  # PDF/Evidencia
 
     class Meta:
         verbose_name = "Nota"

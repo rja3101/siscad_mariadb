@@ -96,3 +96,9 @@ def my_performance(request):
         gline = ("—" if global_avg is None else f"{global_avg:.2f}") + f" — {global_status}"
         html = f"<!doctype html><body><h1>Mi desempeño</h1><table><thead><tr><th>Curso</th><th>Sección</th><th>Promedio</th><th>Semáforo</th></tr></thead><tbody>{body}</tbody></table><div><strong>Promedio global:</strong> {gline}</div></body>"
         return HttpResponse(html)
+    
+from django.http import HttpResponse
+
+def academics_index(request):
+    return HttpResponse("Academics app OK")
+
